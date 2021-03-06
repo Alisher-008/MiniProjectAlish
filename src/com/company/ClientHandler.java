@@ -4,55 +4,38 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.Scanner;
+import java.sql.SQLException;
 
-public class ClientHandler implements Runnable{
+public class ClientHandler implements Runnable {
     ObjectInputStream inputStream;
     ObjectOutputStream outputStream;
-    static int clients = 0;
-    public ClientHandler(Server server,Socket socket) throws IOException {
-        Scanner in = new Scanner(System.in);
-         inputStream= new ObjectInputStream(socket.getInputStream());
-         outputStream= new ObjectOutputStream(socket.getOutputStream());
+    Server server;
+    Socket socket;
 
-         clients++;
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try{
-                    String name = (String) inputStream.readObject();
-                    server.sendMessageToClients(name+"joined");
-                    server.sendMessageToClients(clients+" cliented");
-                    while (true){
-                        String s = (String) inputStream.readObject();
-                        System.out.println(name+": "+s);
-                        server.sendMessageToClients(s);
-                    }
-                }catch (Exception e){
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try{
-                    while (true){
-                        outputStream.writeObject(in.nextLine());
-                    }
-                }catch (Exception e){
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
-    public void sendMessage(String s) throws IOException {
-        outputStream.writeObject(s);
-        System.out.println("Message sent");
+    public ClientHandler(Server server, Socket socket) throws IOException {
+        this.server = server;
+        this.socket = socket;
+        inputStream = new ObjectInputStream(socket.getInputStream());
+        outputStream = new ObjectOutputStream(socket.getOutputStream());
+        new Thread(this).start();
     }
 
     @Override
     public void run() {
-
+        try {
+            PackageData pd = (PackageData) inputStream.readObject();
+            if (pd.operationType.equals("add")) {
+                server.addStudent(pd.getStudent());
+            }
+            else if(pd.operationType.equals("list")){
+                outputStream.writeObject(server.listStudents());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
     }
 }
